@@ -27,13 +27,16 @@
         </button>
       </nav>
     </header>
+
     <section class="banner">
       <h2>Join Study Buddy Finder!</h2>
       <p>Create your account and start connecting with peers.</p>
     </section>
+
     <div class="container">
       <div class="card">
         <h2>Sign Up</h2>
+
         <form id="form">
           <div class="row">
             <label for="email">Email:</label>
@@ -45,6 +48,7 @@
               required
             />
           </div>
+
           <div class="row">
             <label for="password">Password:</label>
             <input
@@ -53,39 +57,77 @@
               name="password"
               placeholder="Enter password"
               required
+              minlength="6"
             />
           </div>
-          <button type="submit" class="btn">Sign Up</button>
+
+          <button type="submit" class="btn" id="submitBtn">Sign Up</button>
         </form>
+
         <p class="text">
-          Already have an account? <a href="index.html.html">Sign in here</a>
+          Already have an account? <a href="index.html">Sign in here</a>
         </p>
+
+        <p class="text" id="msg" style="display: none"></p>
       </div>
     </div>
+
     <div class="footer">
       <a href="https://github.com/Dereck919/Study-Buddy-Finder">
         <span><i class="fa-brands fa-github"></i></span>
       </a>
     </div>
+
     <script>
       const API = "http://localhost:3000";
 
-      document.getElementById("form").addEventListener("submit", async (e) => {
+      const form = document.getElementById("form");
+      const msg = document.getElementById("msg");
+      const submitBtn = document.getElementById("submitBtn");
+
+      function showMsg(text) {
+        msg.style.display = "block";
+        msg.textContent = text;
+      }
+
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const email = document.getElementById("email").value;
+
+        const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
 
-        const res = await fetch(`${API}/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          location.href = "/StudyBuddyFinder/home.html";
-        } else {
-          alert(data.error || "Signup failed");
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Creating...";
+
+        try {
+          const res = await fetch(`${API}/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await res.json();
+
+          if (res.ok) {
+            if (data.needsEmailConfirmation) {
+              showMsg(
+                "Account created! Check your email to confirm, then come back and sign in."
+              );
+              setTimeout(() => {
+                window.location.href = "index.html";
+              }, 1500);
+            } else {
+              window.location.href = "home.html";
+            }
+          } else {
+            showMsg(data.error || "Signup failed");
+          }
+        } catch (err) {
+          showMsg("Network error. Is your server running on port 3000?");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Sign Up";
         }
       });
     </script>

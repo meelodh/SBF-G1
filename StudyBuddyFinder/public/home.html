@@ -2,18 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <title>Study Buddy Finder</title>
+
     <link rel="stylesheet" href="home.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <script src="home.js"></script>
   </head>
+
   <body>
     <header class="header">
       <nav class="navbar">
@@ -28,18 +26,22 @@
         <button class="header-button" onclick="logout()">Logout</button>
       </nav>
     </header>
+
     <section class="banner">
       <h2 id="welcome">Find Your Study Buddy!</h2>
       <p>Connect with your peers, find your schedule, and succeed together.</p>
     </section>
+
     <div class="container">
       <div class="group-menu">
         <h2>Group Search</h2>
+
         <div class="group-options">
           <button type="button">Find Groups</button>
           <button type="button" onclick="getListings()">My Listings</button>
-          <button onclick="location.reload()">Refresh</button>
+          <button type="button" onclick="location.reload()">Refresh</button>
         </div>
+
         <div class="group-description">
           <div class="row">
             <label for="group-size">Preferred Group Size:</label>
@@ -52,15 +54,17 @@
               <option value="6">6+</option>
             </select>
           </div>
+
           <div class="row">
             <label for="location">Location:</label>
             <select id="location" name="location">
               <option value="0">Select</option>
               <option value="student center">Student Center</option>
-              <option value="library">Libary</option>
+              <option value="library">Library</option>
               <option value="online">Online</option>
             </select>
           </div>
+
           <div class="row">
             <label for="time">Time:</label>
             <select id="time" name="time">
@@ -80,18 +84,17 @@
               <option value="10pm">10pm</option>
             </select>
           </div>
+
           <label for="description">Description:</label>
-          <textarea
-            name="paragraph_text"
-            cols="45"
-            rows="5"
-            id="description"
-          ></textarea>
+          <textarea name="paragraph_text" cols="45" rows="5" id="description"></textarea>
+
           <button type="button" onclick="createListing()">Create Group</button>
         </div>
       </div>
+
       <div class="group-container">
         <h2>Group Availability</h2>
+
         <button class="group-button">
           <div class="group-details" id="group-details">
             <p>Group Size:</p>
@@ -100,13 +103,18 @@
             <p>Description:</p>
           </div>
         </button>
-        <button>Edit</button>
+
+        <button type="button">Edit</button>
       </div>
     </div>
+
     <div class="footer">
       <a href="https://github.com/Dereck919/Study-Buddy-Finder">
         <span><i class="fa-brands fa-github"></i></span>
       </a>
     </div>
+
+    <!-- ✅ IMPORTANT: load JS at the END so functions exist when you click buttons -->
+    <script src="home.js"></script>
   </body>
 </html>
