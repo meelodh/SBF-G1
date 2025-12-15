@@ -77,7 +77,7 @@
 
     .dashboard-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 2rem;
       margin-bottom: 2rem;
     }
@@ -185,6 +185,30 @@
       padding: 1.5rem;
       margin-bottom: 1rem;
       color: #a0a0b0;
+    }
+
+    #group-details {
+      max-height: 500px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    #group-details::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #group-details::-webkit-scrollbar-track {
+      background: rgba(42, 42, 53, 0.3);
+      border-radius: 4px;
+    }
+
+    #group-details::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 136, 0.4);
+      border-radius: 4px;
+    }
+
+    #group-details::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 136, 0.6);
     }
 
     .group-details p {
@@ -314,9 +338,9 @@
         <h3>🔍 Group Search</h3>
 
         <div class="form-group">
-          <label for="group-size">Preferred Group Size:</label>
+          <label for="group-size">Group Size:</label>
           <select id="group-size" name="group-size">
-            <option value="0">Select</option>
+            <option value="">All Sizes</option>
             <option value="2">2</option>
             <option value="3">3</option>
             <option value="4">4</option>
@@ -328,7 +352,7 @@
         <div class="form-group">
           <label for="location">Location:</label>
           <select id="location" name="location">
-            <option value="0">Select</option>
+            <option value="">All Locations</option>
             <option value="student center">Student Center</option>
             <option value="library">Library</option>
             <option value="online">Online</option>
@@ -338,6 +362,63 @@
         <div class="form-group">
           <label for="time">Time:</label>
           <select id="time" name="time">
+            <option value="">All Times</option>
+            <option value="8am">8am</option>
+            <option value="9am">9am</option>
+            <option value="10am">10am</option>
+            <option value="12pm">12pm</option>
+            <option value="1pm">1pm</option>
+            <option value="2pm">2pm</option>
+            <option value="3pm">3pm</option>
+            <option value="4pm">4pm</option>
+            <option value="6pm">6pm</option>
+            <option value="7pm">7pm</option>
+            <option value="8pm">8pm</option>
+            <option value="9pm">9pm</option>
+            <option value="10pm">10pm</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="search-keyword">Search Keywords:</label>
+          <input id="search-keyword" type="text" placeholder="Search descriptions..." />
+        </div>
+
+        <div class="button-group">
+          <button class="btn-neon" type="button" onclick="findGroups()">Find Groups</button>
+          <button class="btn-neon" type="button" onclick="clearFilters()">Clear Filters</button>
+        </div>
+      </div>
+
+      <!-- Create Group -->
+      <div class="neon-card">
+        <h3>➕ Create Group</h3>
+
+        <div class="form-group">
+          <label for="create-group-size">Group Size:</label>
+          <select id="create-group-size" name="create-group-size">
+            <option value="0">Select</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6+</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="create-location">Location:</label>
+          <select id="create-location" name="create-location">
+            <option value="0">Select</option>
+            <option value="student center">Student Center</option>
+            <option value="library">Library</option>
+            <option value="online">Online</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="create-time">Time:</label>
+          <select id="create-time" name="create-time">
             <option value="0">Select</option>
             <option value="8am">8am</option>
             <option value="9am">9am</option>
@@ -356,30 +437,29 @@
         </div>
 
         <div class="form-group">
-          <label for="description">Description:</label>
-          <textarea name="paragraph_text" cols="45" rows="5" id="description"></textarea>
+          <label for="create-description">Description:</label>
+          <textarea name="create-description" cols="45" rows="5" id="create-description"></textarea>
         </div>
 
         <div class="button-group">
-          <button class="btn-neon" type="button" onclick="displayListings()">Find Groups</button>
           <button class="btn-neon" type="button" onclick="createListing()">Create Group</button>
-          <button class="btn-neon" type="button" onclick="location.reload()">Refresh</button>
         </div>
       </div>
 
-      <!-- Group Availability -->
+      <!-- Available Groups -->
       <div class="neon-card">
-        <h3>📍 Group Availability</h3>
+        <h3>📍 Available Groups</h3>
+
+        <div id="filter-info" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 6px; color: #a0a0b0; font-size: 0.9rem; display: none;">
+          <strong>Showing:</strong> <span id="filter-text"></span>
+        </div>
 
         <div class="group-details" id="group-details">
-          <p>Group Size:</p>
-          <p>Location:</p>
-          <p>Time:</p>
-          <p>Description:</p>
+          <p class="muted">Loading groups...</p>
         </div>
 
         <div class="button-group">
-          <button class="btn-neon" type="button" onclick="displayListings()">Refresh Listings</button>
+          <button class="btn-neon" type="button" onclick="displayListings()">Refresh All</button>
         </div>
       </div>
     </div>

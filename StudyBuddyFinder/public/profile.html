@@ -216,6 +216,30 @@
       color: #a0a0b0;
     }
 
+    #listings {
+      max-height: 500px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    #listings::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #listings::-webkit-scrollbar-track {
+      background: rgba(42, 42, 53, 0.3);
+      border-radius: 4px;
+    }
+
+    #listings::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 136, 0.4);
+      border-radius: 4px;
+    }
+
+    #listings::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 136, 0.6);
+    }
+
     .group-details p {
       margin: 0.5rem 0;
       color: #a0a0b0;

@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
+      console.log('[Profile] Saving display name:', name);
       const res = await fetch(`${API}/me`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -49,16 +50,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         body: JSON.stringify({ displayName: name }),
       });
 
+      console.log('[Profile] Response status:', res.status);
+      const responseData = await res.json();
+      console.log('[Profile] Response data:', responseData);
+
       if (!res.ok) {
-        const err = await res.json();
-        showMessage(`Error: ${err.error || 'Failed to update profile'}`, false);
+        showMessage(`Error: ${responseData.error || 'Failed to update profile'}`, false);
         return;
       }
 
       showMessage('Profile updated!', true);
+      // Reload the user data to reflect changes
+      const updatedUser = await checkAuth();
+      if (updatedUser) {
+        loadProfile(updatedUser);
+      }
     } catch (err) {
       showMessage('Error updating profile', false);
-      console.error(err);
+      console.error('[Profile] Error:', err);
     }
   });
 

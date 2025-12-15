@@ -23,7 +23,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 */
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: "http://localhost:3000",
     credentials: true,
   })
 );
@@ -69,7 +69,12 @@ function supabaseAuthed(req) {
 // Simple auth guard
 async function requireUser(req, res) {
   const accessToken = req.cookies?.access_token;
-  if (!accessToken) return { error: "auth session missing!" };
+  console.log('[requireUser] Checking auth - access_token exists:', !!accessToken);
+  
+  if (!accessToken) {
+    console.log('[requireUser] No access token found in cookies');
+    return { error: "auth session missing!" };
+  }
 
   // Create a client with the access token in the Authorization header
   const authedClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -81,8 +86,12 @@ async function requireUser(req, res) {
   });
 
   const { data, error } = await authedClient.auth.getUser();
-  if (error || !data?.user) return { error: "Invalid session" };
+  if (error || !data?.user) {
+    console.log('[requireUser] Auth validation failed:', error?.message || 'no user data');
+    return { error: "Invalid session" };
+  }
 
+  console.log('[requireUser] Auth successful for user:', data.user.email);
   return { user: data.user };
 }
 
@@ -146,27 +155,50 @@ app.get("/me", async (req, res) => {
 app.put("/me", async (req, res) => {
   try {
     const result = await requireUser(req, res);
-    if (result.error) return res.status(401).json({ error: result.error });
+    if (result.error) {
+      console.error("[PUT /me] Auth failed:", result.error);
+      return res.status(401).json({ error: result.error });
+    }
 
+    const user = result.user;
     const { displayName } = req.body || {};
     if (!displayName || typeof displayName !== 'string' || displayName.trim() === '') {
       return res.status(400).json({ error: "Display name is required" });
     }
 
     const accessToken = req.cookies?.access_token;
+    const refreshToken = req.cookies?.refresh_token;
+    if (!accessToken) {
+      return res.status(401).json({ error: "auth session missing!" });
+    }
+
     const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: {
         headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
+          Authorization: `Bearer ${accessToken}`,
         },
       },
     });
+
+    // Set the session on the client so updateUser() has proper context
+    const { data: sessionData, error: sessionError } = await supabaseUser.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken || '',
+    });
+
+    if (sessionError) {
+      console.error("[PUT /me] Session set failed:", sessionError);
+      return res.status(401).json({ error: "Failed to establish session" });
+    }
 
     const { data, error } = await supabaseUser.auth.updateUser({
       data: { displayName: displayName.trim() },
     });
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      console.error("[PUT /me] Update failed:", error);
+      return res.status(400).json({ error: error.message });
+    }
 
     return res.json({ ok: true, user: data.user });
   } catch (err) {
@@ -180,6 +212,7 @@ app.put("/me", async (req, res) => {
 */
 
 // GET listings - returns all listings (or just user's if ?mine=true)
+// Supports filtering: ?group_size=3&location=library&time=2pm
 app.get("/listings", async (req, res) => {
   try {
     const result = await requireUser(req, res);
@@ -188,25 +221,39 @@ app.get("/listings", async (req, res) => {
     const sb = supabaseAuthed(req);
     const userId = result.user.id;
     const isMine = req.query.mine === 'true';
+    const groupSize = req.query.group_size;
+    const location = req.query.location;
+    const time = req.query.time;
 
-    console.log(`[DEBUG] /listings called - isMine=${isMine}, userId=${userId}`);
+    console.log(`[listings] Filters - isMine=${isMine}, groupSize=${groupSize}, location=${location}, time=${time}`);
 
     let query = sb.from("listings").select("*");
 
     // If ?mine=true, filter to only this user's listings
     if (isMine) {
-      console.log(`[DEBUG] Filtering to user ${userId}`);
+      console.log(`[listings] Filtering to user ${userId}`);
       query = query.eq("user_id", userId);
+    }
+
+    // Apply optional filters
+    if (groupSize) {
+      console.log(`[listings] Filtering to group_size=${groupSize}`);
+      query = query.eq("group_size", parseInt(groupSize, 10));
+    }
+    if (location) {
+      console.log(`[listings] Filtering to location=${location}`);
+      query = query.eq("location", location);
+    }
+    if (time) {
+      console.log(`[listings] Filtering to time=${time}`);
+      query = query.eq("time", time);
     }
 
     query = query.order("created_at", { ascending: false });
 
     const { data, error } = await query;
 
-    console.log(`[DEBUG] Query result: ${data?.length || 0} listings`);
-    if (data && data.length > 0) {
-      console.log(`[DEBUG] First listing user_id: ${data[0].user_id}`);
-    }
+    console.log(`[listings] Query result: ${data?.length || 0} listings`);
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
