@@ -1,6 +1,14 @@
 // ==================== SUPABASE API SETUP ====================
 const API = "http://localhost:3000";
 
+// Format date from YYYY-MM-DD to "Day, Month Date, Year"
+function formatDateDisplay(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString + 'T00:00:00Z');
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  return date.toLocaleDateString('en-US', options);
+}
+
 // Check authentication status
 async function checkAuth() {
   try {
@@ -101,11 +109,14 @@ function makeListingNode(listing, canEdit = false) {
   const wrap = document.createElement('div');
   wrap.className = 'group-details';
 
+  const dateDisplay = listing.meeting_date ? formatDateDisplay(listing.meeting_date) : 'N/A';
+  
   const info = document.createElement('div');
   info.innerHTML = `
     <p><strong>Group Size:</strong> ${listing.group_size}</p>
     <p><strong>Location:</strong> ${listing.location}</p>
     <p><strong>Time:</strong> ${listing.time}</p>
+    <p><strong>When:</strong> ${dateDisplay} at ${listing.time}</p>
     <p><strong>Description:</strong> ${listing.description || 'N/A'}</p>
     <p><strong>Created:</strong> ${new Date(listing.created_at).toLocaleString()}</p>
   `;
@@ -185,6 +196,10 @@ function showEditForm(listing, container) {
       <input name="time" value="${listing.time}" />
     </div>
     <div class="form-group">
+      <label>Meeting Date</label>
+      <input name="meeting_date" type="date" value="${listing.meeting_date || ''}" />
+    </div>
+    <div class="form-group">
       <label>Description</label>
       <textarea name="description" style="resize: vertical; min-height: 100px;">${listing.description || ''}</textarea>
     </div>
@@ -200,6 +215,7 @@ function showEditForm(listing, container) {
       group_size: form.querySelector('input[name=group_size]').value,
       location: form.querySelector('input[name=location]').value,
       time: form.querySelector('input[name=time]').value,
+      meeting_date: form.querySelector('input[name=meeting_date]').value,
       description: form.querySelector('textarea[name=description]').value,
     };
 
@@ -327,10 +343,12 @@ async function loadJoinedGroups() {
       const groupDiv = document.createElement('div');
       groupDiv.className = 'group-details';
       const postedBy = group.display_name || group.user_email || 'Anonymous';
+      const dateDisplay = group.meeting_date ? formatDateDisplay(group.meeting_date) : 'N/A';
       groupDiv.innerHTML = `
         <p><strong>Group Size:</strong> ${group.group_size}</p>
         <p><strong>Location:</strong> ${group.location}</p>
         <p><strong>Time:</strong> ${group.time}</p>
+        <p><strong>When:</strong> ${dateDisplay} at ${group.time}</p>
         <p><strong>Description:</strong> ${group.description || 'N/A'}</p>
         <p><strong>Posted by:</strong> ${postedBy}</p>
         <div style="display: flex; gap: 8px; margin-top: 1rem;">

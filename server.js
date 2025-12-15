@@ -212,7 +212,7 @@ app.put("/me", async (req, res) => {
 */
 
 // GET listings - returns all listings (or just user's if ?mine=true)
-// Supports filtering: ?group_size=3&location=library&time=2pm
+// Supports filtering: ?group_size=3&location=library&time=2pm&meeting_date=2025-12-20
 app.get("/listings", async (req, res) => {
   try {
     const result = await requireUser(req, res);
@@ -224,8 +224,9 @@ app.get("/listings", async (req, res) => {
     const groupSize = req.query.group_size;
     const location = req.query.location;
     const time = req.query.time;
+    const meetingDate = req.query.meeting_date;
 
-    console.log(`[listings] Filters - isMine=${isMine}, groupSize=${groupSize}, location=${location}, time=${time}`);
+    console.log(`[listings] Filters - isMine=${isMine}, groupSize=${groupSize}, location=${location}, time=${time}, meetingDate=${meetingDate}`);
 
     let query = sb.from("listings").select("*");
 
@@ -247,6 +248,10 @@ app.get("/listings", async (req, res) => {
     if (time) {
       console.log(`[listings] Filtering to time=${time}`);
       query = query.eq("time", time);
+    }
+    if (meetingDate) {
+      console.log(`[listings] Filtering to meeting_date=${meetingDate}`);
+      query = query.eq("meeting_date", meetingDate);
     }
 
     query = query.order("created_at", { ascending: false });
@@ -270,14 +275,14 @@ app.post("/listings", async (req, res) => {
     if (result.error) return res.status(401).json({ error: result.error });
 
     const user = result.user;
-    const { group_size, location, time, description } = req.body || {};
+    const { group_size, location, time, meeting_date, description } = req.body || {};
 
     const parsedSize = parseInt(group_size, 10);
     if (!parsedSize || parsedSize < 1) {
       return res.status(400).json({ error: "Invalid group_size" });
     }
-    if (!location || !time) {
-      return res.status(400).json({ error: "Location and time are required" });
+    if (!location || !time || !meeting_date) {
+      return res.status(400).json({ error: "Location, time, and date are required" });
     }
 
     const sb = supabaseAuthed(req);
@@ -293,6 +298,7 @@ app.post("/listings", async (req, res) => {
           group_size: parsedSize,
           location,
           time,
+          meeting_date,
           description: description || null,
           user_email: user.email,
           display_name: displayName,
@@ -316,12 +322,13 @@ app.put("/listings/:id", async (req, res) => {
     if (result.error) return res.status(401).json({ error: result.error });
 
     const id = req.params.id;
-    const { group_size, location, time, description } = req.body || {};
+    const { group_size, location, time, meeting_date, description } = req.body || {};
 
     const updates = {};
     if (group_size !== undefined) updates.group_size = parseInt(group_size, 10);
     if (location !== undefined) updates.location = location;
     if (time !== undefined) updates.time = time;
+    if (meeting_date !== undefined) updates.meeting_date = meeting_date;
     if (description !== undefined) updates.description = description;
 
     const sb = supabaseAuthed(req);

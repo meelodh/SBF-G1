@@ -1,6 +1,14 @@
 // ==================== SUPABASE API SETUP ====================
 const API = "http://localhost:3000";
 
+// Format date from YYYY-MM-DD to "Day, Month Date, Year"
+function formatDateDisplay(dateString) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString + 'T00:00:00Z');
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  return date.toLocaleDateString('en-US', options);
+}
+
 // Check authentication status
 async function checkAuth() {
   try {
@@ -39,6 +47,7 @@ async function createListing() {
   const location = document.getElementById('create-location').value;
   const group_size = document.getElementById('create-group-size').value;
   const time = document.getElementById('create-time').value;
+  const meeting_date = document.getElementById('create-date').value;
   const description = document.getElementById('create-description').value;
 
   // Validation
@@ -54,6 +63,10 @@ async function createListing() {
     alert('Please select a time');
     return;
   }
+  if (!meeting_date) {
+    alert('Please select a date for the meeting');
+    return;
+  }
 
   try {
     const res = await fetch(`${API}/listings`, {
@@ -64,6 +77,7 @@ async function createListing() {
         location,
         group_size: parseInt(group_size, 10),
         time,
+        meeting_date,
         description: description || '',
       }),
     });
@@ -79,6 +93,7 @@ async function createListing() {
     document.getElementById('create-group-size').value = '0';
     document.getElementById('create-location').value = '0';
     document.getElementById('create-time').value = '0';
+    document.getElementById('create-date').value = '';
     document.getElementById('create-description').value = '';
     // Refresh listings display
     displayListings();
@@ -135,6 +150,8 @@ async function findGroups() {
   if (groupSize) params.append('group_size', groupSize);
   if (location) params.append('location', location);
   if (time) params.append('time', time);
+  const meetingDate = document.getElementById('search-date').value;
+  if (meetingDate) params.append('meeting_date', meetingDate);
 
   try {
     const queryString = params.toString();
@@ -164,13 +181,13 @@ async function findGroups() {
     if (!listings || listings.length === 0) {
       container.innerHTML = '<p class="muted">No groups match your search criteria.</p>';
       filterInfo.style.display = 'block';
-      filterText.innerHTML = buildFilterSummary(groupSize, location, time, keyword);
+      filterText.innerHTML = buildFilterSummary(groupSize, location, time, meetingDate, keyword);
       return;
     }
 
     // Show filter info with summary
     filterInfo.style.display = 'block';
-    filterText.innerHTML = buildFilterSummary(groupSize, location, time, keyword) + ` (${listings.length} result${listings.length !== 1 ? 's' : ''})`;
+    filterText.innerHTML = buildFilterSummary(groupSize, location, time, meetingDate, keyword) + ` (${listings.length} result${listings.length !== 1 ? 's' : ''})`;
 
     renderListings(listings, container);
   } catch (err) {
@@ -180,11 +197,12 @@ async function findGroups() {
   }
 }
 
-function buildFilterSummary(groupSize, location, time, keyword) {
+function buildFilterSummary(groupSize, location, time, meetingDate, keyword) {
   const parts = [];
   if (groupSize) parts.push(`Size: ${groupSize}`);
   if (location) parts.push(`Location: ${location}`);
   if (time) parts.push(`Time: ${time}`);
+  if (meetingDate) parts.push(`Date: ${formatDateDisplay(meetingDate)}`);
   if (keyword) parts.push(`Keyword: "${keyword}"`);
   return parts.length > 0 ? parts.join(' • ') : 'All groups';
 }
@@ -194,6 +212,7 @@ function clearFilters() {
   document.getElementById('group-size').value = '';
   document.getElementById('location').value = '';
   document.getElementById('time').value = '';
+  document.getElementById('search-date').value = '';
   document.getElementById('search-keyword').value = '';
   
   // Show all listings
@@ -206,6 +225,7 @@ function renderListings(listings, container) {
     const listingDiv = document.createElement('div');
     listingDiv.className = 'group-details';
     const postedBy = listing.display_name || listing.user_email || 'Anonymous';
+    const dateDisplay = listing.meeting_date ? formatDateDisplay(listing.meeting_date) : 'N/A';
     
     // Fetch member count for this listing
     let memberCount = 0;
@@ -225,6 +245,7 @@ function renderListings(listings, container) {
       <p><strong>Group Size:</strong> ${listing.group_size}</p>
       <p><strong>Location:</strong> ${listing.location}</p>
       <p><strong>Time:</strong> ${listing.time}</p>
+      <p><strong>When:</strong> ${dateDisplay} at ${listing.time}</p>
       <p><strong>Description:</strong> ${listing.description || 'N/A'}</p>
       <p><strong>Posted by:</strong> ${postedBy}</p>
       ${memberText}
