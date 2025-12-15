@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Study Buddy Finder - Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile - Study Buddy Finder</title>
+  <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -16,15 +16,15 @@
     }
 
     .header {
-      background-color: rgba(21,21,32,0.85);
+      background-color: rgba(21, 21, 32, 0.85);
       padding: 8px 12px;
       position: fixed;
       top: 16px;
       right: 16px;
       z-index: 1000;
       border-radius: 10px;
-      border: 1px solid rgba(42,42,53,0.6);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+      border: 1px solid rgba(42, 42, 53, 0.6);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
     }
 
     .navbar {
@@ -75,11 +75,10 @@
       font-size: 1rem;
     }
 
-    .dashboard-grid {
+    .profile-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 2rem;
-      margin-bottom: 2rem;
     }
 
     .neon-card {
@@ -105,6 +104,38 @@
       font-weight: 600;
     }
 
+    .profile-header {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .avatar {
+      width: 72px;
+      height: 72px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00ff88, #0099ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #021014;
+      font-weight: 700;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .profile-info h3 {
+      margin: 0 0 6px 0;
+      color: #ffffff;
+      font-size: 1.1rem;
+    }
+
+    .profile-info .meta {
+      color: #a0a0b0;
+      font-size: 0.95rem;
+    }
+
     .form-group {
       margin-bottom: 1.5rem;
     }
@@ -118,7 +149,6 @@
     }
 
     .form-group input,
-    .form-group select,
     .form-group textarea {
       width: 100%;
       background-color: #1a1a25;
@@ -132,7 +162,6 @@
     }
 
     .form-group input:focus,
-    .form-group select:focus,
     .form-group textarea:focus {
       outline: none;
       border-color: #00ff88;
@@ -196,44 +225,30 @@
       color: #ffffff;
     }
 
-    @media (max-width: 768px) {
-      .dashboard-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .button-group {
-        flex-direction: column;
-      }
-
-      .btn-neon {
-        width: 100%;
-      }
-
-      .welcome-section h2 {
-        font-size: 1.5rem;
-      }
+    .message {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-top: 12px;
+      font-size: 0.95rem;
+      display: none;
     }
 
-    .footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background-color: #151520;
-      padding: 15px;
-      text-align: center;
-      border-top: 1px solid #2a2a35;
-    }
-
-    .footer a {
-      color: #a0a0b0;
-      text-decoration: none;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .footer a:hover {
+    .message.success {
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid #00ff88;
       color: #00ff88;
-      text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+      display: block;
+    }
+
+    .message.error {
+      background: rgba(255, 107, 129, 0.1);
+      border: 1px solid #ff6b81;
+      color: #ff6b81;
+      display: block;
+    }
+
+    .muted {
+      color: #a0a0b0;
     }
 
     .background-effects {
@@ -250,48 +265,48 @@
       position: absolute;
       border-radius: 50%;
       filter: blur(40px);
-      opacity: 0.05;
-      animation: float 6s ease-in-out infinite;
+      opacity: 0.12;
     }
 
     .glow-orb-1 {
-      width: 400px;
-      height: 400px;
+      width: 260px;
+      height: 260px;
       background: #00ff88;
-      top: -100px;
-      right: -100px;
+      left: -80px;
+      top: -80px;
     }
 
     .glow-orb-2 {
-      width: 300px;
-      height: 300px;
+      width: 200px;
+      height: 200px;
       background: #0099ff;
-      bottom: 50px;
-      left: -50px;
-      animation-delay: 2s;
+      right: -60px;
+      bottom: -60px;
     }
 
-    .glow-orb-3 {
-      width: 250px;
-      height: 250px;
-      background: #ff0099;
-      top: 50%;
-      left: 50%;
-      animation-delay: 4s;
-    }
+    @media (max-width: 768px) {
+      .profile-grid {
+        grid-template-columns: 1fr;
+      }
 
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(20px); }
+      .button-group {
+        flex-direction: column;
+      }
+
+      .btn-neon {
+        width: 100%;
+      }
+
+      .welcome-section h2 {
+        font-size: 1.5rem;
+      }
     }
   </style>
 </head>
-
 <body>
   <div class="background-effects">
     <div class="glow-orb glow-orb-1"></div>
     <div class="glow-orb glow-orb-2"></div>
-    <div class="glow-orb glow-orb-3"></div>
   </div>
 
   <header class="header">
@@ -302,91 +317,44 @@
     </nav>
   </header>
 
-  <div class="dashboard-container">
-    <div class="welcome-section">
-      <h2 id="welcome">Find Your Study Buddy!</h2>
-      <p>Connect with your peers, Find your schedule and succeed together.</p>
-    </div>
+  <main class="dashboard-container">
+    <section class="welcome-section">
+      <h2>My Profile</h2>
+      <p>Manage your Study Buddy Finder account</p>
+    </section>
 
-    <div class="dashboard-grid">
-      <!-- Group Search -->
+    <div class="profile-grid">
       <div class="neon-card">
-        <h3>🔍 Group Search</h3>
-
-        <div class="form-group">
-          <label for="group-size">Preferred Group Size:</label>
-          <select id="group-size" name="group-size">
-            <option value="0">Select</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6+</option>
-          </select>
+        <div class="profile-header">
+          <div class="avatar" id="avatar">SB</div>
+          <div class="profile-info">
+            <h3 id="email">Loading...</h3>
+            <div class="meta" id="joined"></div>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="location">Location:</label>
-          <select id="location" name="location">
-            <option value="0">Select</option>
-            <option value="student center">Student Center</option>
-            <option value="library">Library</option>
-            <option value="online">Online</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="time">Time:</label>
-          <select id="time" name="time">
-            <option value="0">Select</option>
-            <option value="8am">8am</option>
-            <option value="9am">9am</option>
-            <option value="10am">10am</option>
-            <option value="12pm">12pm</option>
-            <option value="1pm">1pm</option>
-            <option value="2pm">2pm</option>
-            <option value="3pm">3pm</option>
-            <option value="4pm">4pm</option>
-            <option value="6pm">6pm</option>
-            <option value="7pm">7pm</option>
-            <option value="8pm">8pm</option>
-            <option value="9pm">9pm</option>
-            <option value="10pm">10pm</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="description">Description:</label>
-          <textarea name="paragraph_text" cols="45" rows="5" id="description"></textarea>
+          <label for="displayName">Display Name</label>
+          <input id="displayName" placeholder="Enter display name" />
         </div>
 
         <div class="button-group">
-          <button class="btn-neon" type="button" onclick="getListings()">Find Groups</button>
-          <button class="btn-neon" type="button" onclick="getListings()">My Listings</button>
-          <button class="btn-neon" type="button" onclick="location.reload()">Refresh</button>
-          <button class="btn-neon" type="button" onclick="createListing()">Create Group</button>
+          <button class="btn-neon" id="saveBtn">Save Changes</button>
+          <button class="btn-neon" id="signoutBtn">Sign Out</button>
         </div>
+
+        <div id="msg" class="message"></div>
       </div>
 
-      <!-- Group Availability -->
       <div class="neon-card">
-        <h3>📍 Group Availability</h3>
-
-        <div class="group-details" id="group-details">
-          <p>Group Size:</p>
-          <p>Location:</p>
-          <p>Time:</p>
-          <p>Description:</p>
-        </div>
-
-        <div class="button-group">
-          <button class="btn-neon" type="button" onclick="getListings()">Refresh Listings</button>
-          <button class="btn-neon" type="button">Edit</button>
+        <h3>Your Listings</h3>
+        <div id="listings">
+          <p class="muted">Loading your listings...</p>
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <script src="home.js"></script>
+  <script src="profile.js"></script>
 </body>
 </html>

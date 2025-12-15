@@ -1,133 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sign Up - Study Buddy Finder</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header class="header">
-      <nav class="navbar">
-        <button
-          class="header-button"
-          onclick="window.location.href='signup.html'"
-        >
-          Sign up
-        </button>
-        <button
-          class="header-button"
-          onclick="window.location.href='index.html'"
-        >
-          Sign in
-        </button>
-      </nav>
-    </header>
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="logo-icon">Study Buddy Finder</div>
+          <h2>Sign Up</h2>
+          <p>Join Study Buddy Finder</p>
+        </div>
 
-    <section class="banner">
-      <h2>Join Study Buddy Finder!</h2>
-      <p>Create your account and start connecting with peers.</p>
-    </section>
-
-    <div class="container">
-      <div class="card">
-        <h2>Sign Up</h2>
-
-        <form id="form">
-          <div class="row">
-            <label for="email">Email:</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder="Enter email"
-              required
-            />
+        <form id="form" class="login-form" novalidate>
+          <div class="form-group">
+            <div class="input-wrapper">
+              <input id="email" name="email" type="email" required autocomplete="email" />
+              <label for="email">Email</label>
+            </div>
+            <div id="emailError" class="field-error" aria-live="polite"></div>
           </div>
 
-          <div class="row">
-            <label for="password">Password:</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Enter password"
-              required
-              minlength="6"
-            />
+          <div class="form-group">
+            <div class="input-wrapper">
+              <input id="password" name="password" type="password" required minlength="6" autocomplete="new-password" />
+              <label for="password">Password</label>
+            </div>
+            <div id="passwordError" class="field-error" aria-live="polite"></div>
           </div>
 
-          <button type="submit" class="btn" id="submitBtn">Sign Up</button>
+          <button id="submitBtn" class="login-btn" type="submit"><span class="btn-text">Sign Up</span></button>
         </form>
 
-        <p class="text">
-          Already have an account? <a href="index.html">Sign in here</a>
-        </p>
-
-        <p class="text" id="msg" style="display: none"></p>
+        <div class="signup-link"><p><a href="index.html">Sign in</a></p></div>
       </div>
-    </div>
 
-    <div class="footer">
-      <a href="https://github.com/Dereck919/Study-Buddy-Finder">
-        <span><i class="fa-brands fa-github"></i></span>
-      </a>
+      <div class="glow-orb orb-1"></div>
+      <div class="glow-orb orb-2"></div>
     </div>
 
     <script>
-      const API = "http://localhost:3000";
+      /*redirect to home*/
+      const API = 'http://localhost:3000';
+      const form = document.getElementById('form');
+      const emailError = document.getElementById('emailError');
+      const passwordError = document.getElementById('passwordError');
+      const submitBtn = document.getElementById('submitBtn');
 
-      const form = document.getElementById("form");
-      const msg = document.getElementById("msg");
-      const submitBtn = document.getElementById("submitBtn");
-
-      function showMsg(text) {
-        msg.style.display = "block";
-        msg.textContent = text;
+      function showError(el, text) {
+        el.textContent = text;
+        el.classList.add('show');
       }
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+      function clearErrors() {
+        [emailError, passwordError].forEach(el => { el.textContent = ''; el.classList.remove('show'); });
+      }
 
-        const email = document.getElementById("email").value.trim();
-        const password = document.getElementById("password").value;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErrors();
+
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        if (!email) return showError(emailError, 'Email is required');
+        if (!password) return showError(passwordError, 'Password is required');
+        if (password.length < 6) return showError(passwordError, 'Password must be at least 6 characters');
 
         submitBtn.disabled = true;
-        submitBtn.textContent = "Creating...";
+        submitBtn.querySelector('.btn-text').textContent = 'Creating...';
 
         try {
           const res = await fetch(`${API}/signup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ email, password }),
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', body: JSON.stringify({ email, password })
           });
 
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
 
           if (res.ok) {
-            if (data.needsEmailConfirmation) {
-              showMsg(
-                "Account created! Check your email to confirm, then come back and sign in."
-              );
-              setTimeout(() => {
-                window.location.href = "index.html";
-              }, 1500);
-            } else {
-              window.location.href = "home.html";
-            }
+            if (data.needsEmailConfirmation) location.href = 'index.html';
+            else location.href = 'home.html';
           } else {
-            showMsg(data.error || "Signup failed");
+            showError(emailError, data.error || 'Signup failed');
           }
         } catch (err) {
-          showMsg("Network error. Is your server running on port 3000?");
+          showError(emailError, 'Network error. Is the server running on port 3000?');
         } finally {
           submitBtn.disabled = false;
-          submitBtn.textContent = "Sign Up";
+          submitBtn.querySelector('.btn-text').textContent = 'Sign Up';
         }
       });
     </script>

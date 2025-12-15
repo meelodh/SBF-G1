@@ -1,116 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sign In - Study Buddy Finder</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header class="header">
-      <nav class="navbar">
-        <button class="header-button" onclick="window.location.href='signup.html'">
-          Sign up
-        </button>
-        <button class="header-button" onclick="window.location.href='index.html'">
-          Sign in
-        </button>
-      </nav>
-    </header>
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="logo-icon">Study Buddy Finder</div>
+          <h2>Sign In</h2>
+          <p>Access Study Buddy Finder</p>
+        </div>
 
-    <section class="banner">
-      <h2>Welcome Back!</h2>
-      <p>Sign in to connect with your study group and get learning!</p>
-    </section>
-
-    <div class="container">
-      <div class="card">
-        <h2>Sign In</h2>
-
-        <form id="form">
-          <div class="row">
-            <label for="email">Email:</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder="Enter email"
-              required
-            />
+        <!--login-->
+        <form id="form" class="login-form" novalidate>
+          <div class="form-group">
+            <div class="input-wrapper">
+              <input id="email" name="email" type="email" required autocomplete="email" />
+              <label for="email">Email</label>
+            </div>
+            <div id="emailError" class="field-error" aria-live="polite"></div>
           </div>
 
-          <div class="row">
-            <label for="password">Password:</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Enter password"
-              required
-            />
+          <div class="form-group">
+            <div class="input-wrapper">
+              <input id="password" name="password" type="password" required autocomplete="current-password" />
+              <label for="password">Password</label>
+            </div>
+            <div id="passwordError" class="field-error" aria-live="polite"></div>
           </div>
 
-          <button type="submit" class="btn" id="submitBtn">Login</button>
+          <button id="submitBtn" class="login-btn" type="submit">
+            <span class="btn-text">Sign In</span>
+          </button>
         </form>
 
-        <p class="text">
-          Don’t have an account? <a href="signup.html">Sign up here</a>
-        </p>
-
-        <p class="text" id="msg" style="display:none;"></p>
+        <div class="signup-link">
+          <p><a href="signup.html">Create an account</a></p>
+        </div>
       </div>
-    </div>
 
-    <div class="footer">
-      <a href="https://github.com/Dereck919/Study-Buddy-Finder">
-        <span><i class="fa-brands fa-github"></i></span>
-      </a>
+      <!-- orbs -->
+      <div class="glow-orb orb-1"></div>
+      <div class="glow-orb orb-2"></div>
     </div>
 
     <script>
-      const API = "http://localhost:3000";
-      const form = document.getElementById("form");
-      const msg = document.getElementById("msg");
-      const submitBtn = document.getElementById("submitBtn");
+      const API = 'http://localhost:3000';
+      const form = document.getElementById('form');
+      const emailError = document.getElementById('emailError');
+      const submitBtn = document.getElementById('submitBtn');
 
-      function showMsg(text) {
-        msg.style.display = "block";
-        msg.textContent = text;
+      function showMsg(targetEl, text) {
+        targetEl.textContent = text;
+        targetEl.classList.add('show');
       }
 
-      form.addEventListener("submit", async (e) => {
+      form.addEventListener('input', () => {
+        emailError.textContent = '';
+        emailError.classList.remove('show');
+      });
+
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const email = document.getElementById("email").value.trim();
-        const password = document.getElementById("password").value;
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        // validation
+        if (!email || !password) {
+          showMsg(emailError, 'Please provide both email and password.');
+          return;
+        }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = "Logging in...";
+        submitBtn.querySelector('.btn-text').textContent = 'Logging in...';
 
         try {
           const res = await fetch(`${API}/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ email, password }),
           });
 
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
 
           if (res.ok) {
-            window.location.href = "home.html";
+            // Successful login 
+            window.location.href = 'home.html';
           } else {
-            showMsg(data.error || "Login failed");
+            showMsg(emailError, data.error || 'Login failed.');
           }
         } catch (err) {
-          showMsg("Network error. Is your server running on port 3000?");
+          showMsg(emailError, 'Network error. Is the server running on port 3000?');
         } finally {
           submitBtn.disabled = false;
-          submitBtn.textContent = "Login";
+          submitBtn.querySelector('.btn-text').textContent = 'Sign In';
         }
       });
     </script>
