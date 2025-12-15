@@ -40,7 +40,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       showMessage('Please enter a display name', false);
       return;
     }
-    showMessage('Profile updated!', true);
+    
+    try {
+      const res = await fetch(`${API}/me`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ displayName: name }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        showMessage(`Error: ${err.error || 'Failed to update profile'}`, false);
+        return;
+      }
+
+      showMessage('Profile updated!', true);
+    } catch (err) {
+      showMessage('Error updating profile', false);
+      console.error(err);
+    }
   });
 
   // Wire sign out button
@@ -211,7 +230,7 @@ async function loadListings() {
   listEl.innerHTML = '<p class="muted">Loading your listings...</p>';
 
   try {
-    const res = await fetch(`${API}/listings`, { credentials: 'include' });
+    const res = await fetch(`${API}/listings?mine=true`, { credentials: 'include' });
     if (!res.ok) {
       listEl.innerHTML = '<p class="muted">Error loading listings.</p>';
       return;

@@ -133,22 +133,71 @@ app.get("/me", async (req, res) => {
   return res.json({ ok: true, user: result.user });
 });
 
+// UPDATE PROFILE
+app.put("/me", async (req, res) => {
+  try {
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
+
+    const { displayName } = req.body || {};
+    if (!displayName || typeof displayName !== 'string' || displayName.trim() === '') {
+      return res.status(400).json({ error: "Display name is required" });
+    }
+
+    const accessToken = req.cookies?.access_token;
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: accessToken ? `Bearer ${accessToken}` : "",
+        },
+      },
+    });
+
+    const { data, error } = await supabaseUser.auth.updateUser({
+      data: { displayName: displayName.trim() },
+    });
+
+    if (error) return res.status(400).json({ error: error.message });
+
+    return res.json({ ok: true, user: data.user });
+  } catch (err) {
+    console.error("Error updating profile:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 /*
   LISTINGS (RLS enabled, so we MUST use supabaseAuthed(req))
 */
 
-// GET listings (RLS will automatically return ONLY their rows)
+// GET listings - returns all listings (or just user's if ?mine=true)
 app.get("/listings", async (req, res) => {
   try {
     const result = await requireUser(req, res);
     if (result.error) return res.status(401).json({ error: result.error });
 
     const sb = supabaseAuthed(req);
+    const userId = result.user.id;
+    const isMine = req.query.mine === 'true';
 
-    const { data, error } = await sb
-      .from("listings")
-      .select("*")
-      .order("created_at", { ascending: false });
+    console.log(`[DEBUG] /listings called - isMine=${isMine}, userId=${userId}`);
+
+    let query = sb.from("listings").select("*");
+
+    // If ?mine=true, filter to only this user's listings
+    if (isMine) {
+      console.log(`[DEBUG] Filtering to user ${userId}`);
+      query = query.eq("user_id", userId);
+    }
+
+    query = query.order("created_at", { ascending: false });
+
+    const { data, error } = await query;
+
+    console.log(`[DEBUG] Query result: ${data?.length || 0} listings`);
+    if (data && data.length > 0) {
+      console.log(`[DEBUG] First listing user_id: ${data[0].user_id}`);
+    }
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json(data || []);
@@ -243,6 +292,18 @@ app.delete("/listings/:id", async (req, res) => {
     const id = req.params.id;
     const sb = supabaseAuthed(req);
 
+    // First, check if the listing exists and belongs to the user
+    const { data: existing, error: fetchError } = await sb
+      .from("listings")
+      .select("id")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(403).json({ error: "Not authorized or not found" });
+    }
+
+    // Now delete it
     const { error } = await sb.from("listings").delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
 
