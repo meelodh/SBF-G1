@@ -2,10 +2,21 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import supabase from "./supabaseClient.js";
+import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY in .env");
+  process.exit(1);
+}
+
+// Base client (anon) - good for auth methods, NOT for RLS DB calls unless you attach user token
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /*
   Middleware
@@ -20,24 +31,50 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-/*
-  Serve frontend files
-*/
+// Serve frontend files
 app.use(express.static("StudyBuddyFinder/public"));
 
 /*
-  Auth Helpers
+  Helpers
 */
 function setAuthCookies(res, session) {
   const cookieOptions = {
     httpOnly: true,
     sameSite: "lax",
-    secure: false, // true only when using HTTPS
+    secure: false, // set true only on HTTPS
     path: "/",
   };
 
   res.cookie("access_token", session.access_token, cookieOptions);
   res.cookie("refresh_token", session.refresh_token, cookieOptions);
+}
+
+function clearAuthCookies(res) {
+  res.clearCookie("access_token", { path: "/" });
+  res.clearCookie("refresh_token", { path: "/" });
+}
+
+// Create an "authed" client that includes the user's JWT so RLS works
+function supabaseAuthed(req) {
+  const accessToken = req.cookies?.access_token || "";
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: accessToken ? `Bearer ${accessToken}` : "",
+      },
+    },
+  });
+}
+
+// Simple auth guard
+async function requireUser(req, res) {
+  const accessToken = req.cookies?.access_token;
+  if (!accessToken) return { error: "Not logged in" };
+
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data?.user) return { error: "Invalid session" };
+
+  return { user: data.user };
 }
 
 /*
@@ -48,27 +85,19 @@ function setAuthCookies(res, session) {
 app.post("/signup", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return res.status(400).json({ error: error.message });
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    // email confirmation OFF → session exists immediately
+    // if email confirmation is OFF, session exists immediately
     if (data?.session) {
       setAuthCookies(res, data.session);
-      return res.json({ ok: true });
     }
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, needsEmailConfirmation: !data?.session });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -79,7 +108,6 @@ app.post("/signup", async (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
-
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password required" });
     }
@@ -88,10 +116,7 @@ app.post("/login", async (req, res) => {
       email,
       password,
     });
-
-    if (error) {
-      return res.status(401).json({ error: error.message });
-    }
+    if (error) return res.status(401).json({ error: error.message });
 
     setAuthCookies(res, data.session);
     return res.json({ ok: true });
@@ -103,34 +128,29 @@ app.post("/login", async (req, res) => {
 
 // CHECK SESSION
 app.get("/me", async (req, res) => {
-  const accessToken = req.cookies?.access_token;
-
-  if (!accessToken) {
-    return res.status(401).json({ error: "Not logged in" });
-  }
-
-  const { data, error } = await supabase.auth.getUser(accessToken);
-
-  if (error) {
-    return res.status(401).json({ error: "Invalid session" });
-  }
-
-  return res.json({ ok: true, user: data.user });
+  const result = await requireUser(req, res);
+  if (result.error) return res.status(401).json({ error: result.error });
+  return res.json({ ok: true, user: result.user });
 });
 
-// LISTINGS
-// GET all listings (requires auth)
+/*
+  LISTINGS (RLS enabled, so we MUST use supabaseAuthed(req))
+*/
+
+// GET listings (RLS will automatically return ONLY their rows)
 app.get("/listings", async (req, res) => {
   try {
-    const accessToken = req.cookies?.access_token;
-    if (!accessToken) return res.status(401).json({ error: "Not logged in" });
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
 
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError) return res.status(401).json({ error: "Invalid session" });
+    const sb = supabaseAuthed(req);
 
-    const { data, error } = await supabase.from("listings").select("*").order("created_at", { ascending: false });
+    const { data, error } = await sb
+      .from("listings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
     if (error) return res.status(500).json({ error: error.message });
-
     return res.json(data || []);
   } catch (err) {
     console.error(err);
@@ -138,33 +158,40 @@ app.get("/listings", async (req, res) => {
   }
 });
 
-// POST create a listing
+// POST create a listing (must set user_id = auth.uid(), RLS checks it)
 app.post("/listings", async (req, res) => {
   try {
-    const accessToken = req.cookies?.access_token;
-    if (!accessToken) return res.status(401).json({ error: "Not logged in" });
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
 
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError) return res.status(401).json({ error: "Invalid session" });
-
-    const user = userData.user;
+    const user = result.user;
     const { group_size, location, time, description } = req.body || {};
 
-    // basic validation
     const parsedSize = parseInt(group_size, 10);
-    if (!parsedSize || parsedSize < 1) return res.status(400).json({ error: "Invalid group_size" });
-    if (!location || !time) return res.status(400).json({ error: "Location and time are required" });
+    if (!parsedSize || parsedSize < 1) {
+      return res.status(400).json({ error: "Invalid group_size" });
+    }
+    if (!location || !time) {
+      return res.status(400).json({ error: "Location and time are required" });
+    }
 
-    const { data, error } = await supabase.from("listings").insert([{
-      user_id: user.id,
-      group_size: parsedSize,
-      location,
-      time,
-      description: description || null
-    }]).select().single();
+    const sb = supabaseAuthed(req);
+
+    const { data, error } = await sb
+      .from("listings")
+      .insert([
+        {
+          user_id: user.id,
+          group_size: parsedSize,
+          location,
+          time,
+          description: description || null,
+        },
+      ])
+      .select()
+      .single();
 
     if (error) return res.status(500).json({ error: error.message });
-
     return res.status(201).json(data);
   } catch (err) {
     console.error(err);
@@ -172,31 +199,33 @@ app.post("/listings", async (req, res) => {
   }
 });
 
-// PUT update a listing (must own)
+// PUT update listing (RLS enforces ownership, but we still use authed client)
 app.put("/listings/:id", async (req, res) => {
   try {
-    const accessToken = req.cookies?.access_token;
-    if (!accessToken) return res.status(401).json({ error: "Not logged in" });
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
 
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError) return res.status(401).json({ error: "Invalid session" });
-
-    const user = userData.user;
     const id = req.params.id;
-
-    const { data: existing, error: fetchErr } = await supabase.from("listings").select("*").eq("id", id).single();
-    if (fetchErr || !existing) return res.status(404).json({ error: "Listing not found" });
-    if (existing.user_id !== user.id) return res.status(403).json({ error: "Not authorized" });
+    const { group_size, location, time, description } = req.body || {};
 
     const updates = {};
-    const { group_size, location, time, description } = req.body || {};
     if (group_size !== undefined) updates.group_size = parseInt(group_size, 10);
     if (location !== undefined) updates.location = location;
     if (time !== undefined) updates.time = time;
     if (description !== undefined) updates.description = description;
 
-    const { data, error } = await supabase.from("listings").update(updates).eq("id", id).select().single();
+    const sb = supabaseAuthed(req);
+
+    const { data, error } = await sb
+      .from("listings")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    // If they try updating someone else's row, RLS makes it return null
     if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(403).json({ error: "Not authorized or not found" });
 
     return res.json(data);
   } catch (err) {
@@ -205,23 +234,16 @@ app.put("/listings/:id", async (req, res) => {
   }
 });
 
-// DELETE listing (must own)
+// DELETE listing (RLS enforces ownership)
 app.delete("/listings/:id", async (req, res) => {
   try {
-    const accessToken = req.cookies?.access_token;
-    if (!accessToken) return res.status(401).json({ error: "Not logged in" });
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
 
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError) return res.status(401).json({ error: "Invalid session" });
-
-    const user = userData.user;
     const id = req.params.id;
+    const sb = supabaseAuthed(req);
 
-    const { data: existing, error: fetchErr } = await supabase.from("listings").select("*").eq("id", id).single();
-    if (fetchErr || !existing) return res.status(404).json({ error: "Listing not found" });
-    if (existing.user_id !== user.id) return res.status(403).json({ error: "Not authorized" });
-
-    const { error } = await supabase.from("listings").delete().eq("id", id);
+    const { error } = await sb.from("listings").delete().eq("id", id);
     if (error) return res.status(500).json({ error: error.message });
 
     return res.json({ ok: true });
@@ -233,14 +255,10 @@ app.delete("/listings/:id", async (req, res) => {
 
 // LOGOUT
 app.post("/logout", (req, res) => {
-  res.clearCookie("access_token", { path: "/" });
-  res.clearCookie("refresh_token", { path: "/" });
+  clearAuthCookies(res);
   res.json({ ok: true });
 });
 
-/*
-  Start Server
-*/
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
 });
