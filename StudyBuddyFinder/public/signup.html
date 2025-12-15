@@ -43,7 +43,6 @@
     </div>
 
     <script>
-      /*redirect to home*/
       const API = 'http://localhost:3000';
       const form = document.getElementById('form');
       const emailError = document.getElementById('emailError');
@@ -75,20 +74,22 @@
 
         try {
           const res = await fetch(`${API}/signup`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', body: JSON.stringify({ email, password })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email, password }),
           });
 
-          const data = await res.json().catch(() => ({}));
-
-          if (res.ok) {
-            if (data.needsEmailConfirmation) location.href = 'index.html';
-            else location.href = 'home.html';
+          if (!res.ok) {
+            const err = await res.json();
+            showError(emailError, err.error || 'Signup failed. Please try again.');
           } else {
-            showError(emailError, data.error || 'Signup failed');
+            // Successful signup - auto-login
+            window.location.href = 'home.html';
           }
         } catch (err) {
-          showError(emailError, 'Network error. Is the server running on port 3000?');
+          console.error('Signup error:', err);
+          showError(emailError, 'Error creating account. Please try again.');
         } finally {
           submitBtn.disabled = false;
           submitBtn.querySelector('.btn-text').textContent = 'Sign Up';

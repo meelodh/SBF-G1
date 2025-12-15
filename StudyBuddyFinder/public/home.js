@@ -1,106 +1,146 @@
+// ==================== SUPABASE API SETUP ====================
 const API = "http://localhost:3000";
 
-// Require login on page load + set welcome message
-(async () => {
+// Check authentication status
+async function checkAuth() {
   try {
-    const res = await fetch(`${API}/me`, { credentials: "include" });
-    const data = await res.json();
-
+    const res = await fetch(`${API}/me`, { credentials: 'include' });
     if (!res.ok) {
-      // IMPORTANT: no "public/" in the URL when Express serves static files
-      return (window.location.href = "index.html");
+      window.location.href = 'index.html';
+      return null;
     }
-
-    const welcomeEl = document.getElementById("welcome");
-    if (welcomeEl && data?.user?.email) {
-      welcomeEl.textContent = "Welcome back, " + data.user.email + "!";
-    }
-  } catch (err) {
-    // If the server is down or request fails, go back to login
-    window.location.href = "index.html";
-  }
-})();
-
-async function createListing() {
-  const location = document.getElementById("location").value;
-  const group_size = parseInt(document.getElementById("group-size").value, 10);
-  const time = document.getElementById("time").value;
-  const description = document.getElementById("description").value;
-
-  try {
-    const res = await fetch(`${API}/listings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include", // ✅ send cookies
-      body: JSON.stringify({ location, group_size, time, description }),
-    });
-
     const data = await res.json();
-
-    if (res.ok) {
-      alert("Listing submitted!");
-      console.log("Inserted:", data);
-    } else {
-      console.log("Error:", data.error || "Failed to create listing");
-      alert(data.error || "Failed to create listing");
-    }
+    return data.user;
   } catch (err) {
-    console.log("Network error creating listing");
-    alert("Network error creating listing");
+    console.error('Auth check failed:', err);
+    window.location.href = 'index.html';
+    return null;
   }
 }
 
-async function getListings() {
+// ==================== PAGE INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = await checkAuth();
+  
+  if (user && user.email) {
+    const welcomeEl = document.getElementById('welcome');
+    if (welcomeEl) {
+      welcomeEl.textContent = `Welcome back, ${user.email}!`;
+    }
+  }
+  
+  // Load listings on page load
+  displayListings();
+});
+
+// ==================== LISTING MANAGEMENT ====================
+async function createListing() {
+  const location = document.getElementById('location').value;
+  const group_size = document.getElementById('group-size').value;
+  const time = document.getElementById('time').value;
+  const description = document.getElementById('description').value;
+
+  // Validation
+  if (!location || location === '0') {
+    alert('Please select a location');
+    return;
+  }
+  if (!group_size || group_size === '0') {
+    alert('Please select a group size');
+    return;
+  }
+  if (!time || time === '0') {
+    alert('Please select a time');
+    return;
+  }
+
   try {
     const res = await fetch(`${API}/listings`, {
-      method: "GET",
-      credentials: "include", // ✅ send cookies (if your backend protects listings)
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        location,
+        group_size: parseInt(group_size, 10),
+        time,
+        description: description || '',
+      }),
     });
 
-    const data = await res.json();
-
     if (!res.ok) {
-      console.log("Error:", data.error || "Failed to load listings");
-      return alert(data.error || "Failed to load listings");
+      const err = await res.json();
+      alert(`Error: ${err.error || 'Failed to create listing'}`);
+      return;
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
-      return alert("No listings found.");
-    }
-
-    const first = data[0];
-    const paragraphs = document.querySelectorAll("div.group-details > p");
-
-    if (paragraphs.length >= 4) {
-      paragraphs[0].textContent = "Group Size: " + (first.group_size ?? "");
-      paragraphs[1].textContent = "Location: " + (first.location ?? "");
-      paragraphs[2].textContent = "Time: " + (first.time ?? "");
-      paragraphs[3].textContent = "Description: " + (first.description ?? "");
-    }
-
-    console.log(data);
+    alert('Listing created successfully!');
+    // Clear form
+    document.getElementById('group-size').value = '0';
+    document.getElementById('location').value = '0';
+    document.getElementById('time').value = '0';
+    document.getElementById('description').value = '';
+    // Refresh listings display
+    displayListings();
   } catch (err) {
-    console.log("Network error loading listings");
-    alert("Network error loading listings");
+    console.error('Error creating listing:', err);
+    alert('Error creating listing');
   }
+}
+
+async function displayListings() {
+  const container = document.getElementById('group-details');
+
+  try {
+    const res = await fetch(`${API}/listings`, { credentials: 'include' });
+    if (!res.ok) {
+      container.innerHTML = '<p class="muted">Failed to load listings.</p>';
+      return;
+    }
+
+    const listings = await res.json();
+    if (!listings || listings.length === 0) {
+      container.innerHTML = '<p class="muted">No listings available yet.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    listings.forEach((listing) => {
+      const listingDiv = document.createElement('div');
+      listingDiv.className = 'group-details';
+      listingDiv.innerHTML = `
+        <p><strong>Group Size:</strong> ${listing.group_size}</p>
+        <p><strong>Location:</strong> ${listing.location}</p>
+        <p><strong>Time:</strong> ${listing.time}</p>
+        <p><strong>Description:</strong> ${listing.description || 'N/A'}</p>
+        <p><strong>Posted by:</strong> ${listing.user_email}</p>
+        <div style="display: flex; gap: 8px; margin-top: 1rem;">
+          <button class="btn-neon" style="flex: 1; min-width: 100px;" onclick="joinListing('${listing.id}')">Join Group</button>
+        </div>
+      `;
+      container.appendChild(listingDiv);
+    });
+  } catch (err) {
+    console.error('Error loading listings:', err);
+    container.innerHTML = '<p class="muted">Error loading listings.</p>';
+  }
+}
+
+function joinListing(listingId) {
+  alert(`You've expressed interest in this group! In production, contact information would be shared here.`);
+}
+
+function getListings() {
+  displayListings();
 }
 
 async function logout() {
   try {
-    const res = await fetch(`${API}/logout`, {
-      method: "POST",
-      credentials: "include", // ✅ send cookies so server clears them
+    await fetch(`${API}/logout`, {
+      method: 'POST',
+      credentials: 'include',
     });
-
-    // Even if logout fails, still clear local stuff and redirect
-    localStorage.removeItem("auth");
-    sessionStorage.removeItem("auth");
-
-    // IMPORTANT: no "public/" in the URL
-    window.location.href = "index.html";
   } catch (err) {
-    localStorage.removeItem("auth");
-    sessionStorage.removeItem("auth");
-    window.location.href = "index.html";
+    console.error('Logout error:', err);
   }
+  window.location.href = 'index.html';
 }

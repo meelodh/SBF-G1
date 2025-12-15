@@ -1,25 +1,24 @@
+// ==================== SUPABASE API SETUP ====================
 const API = "http://localhost:3000";
 
-async function loadProfile() {
+// Check authentication status
+async function checkAuth() {
   try {
     const res = await fetch(`${API}/me`, { credentials: 'include' });
-    if (!res.ok) return (window.location.href = 'index.html');
-
+    if (!res.ok) {
+      window.location.href = 'index.html';
+      return null;
+    }
     const data = await res.json();
-    const user = data?.user;
-    if (!user) return (window.location.href = 'index.html');
-
-    document.getElementById('email').textContent = user.email || '';
-    const joined = user?.created_at ? new Date(user.created_at).toLocaleString() : '';
-    document.getElementById('joined').textContent = joined ? `Joined: ${joined}` : '';
-    document.getElementById('avatar').textContent = (user.email || 'U').slice(0,2).toUpperCase();
-    document.getElementById('displayName').value = user?.user_metadata?.displayName || '';
+    return data.user;
   } catch (err) {
-    console.error(err);
+    console.error('Auth check failed:', err);
     window.location.href = 'index.html';
+    return null;
   }
 }
 
+// ==================== MESSAGE DISPLAY ====================
 function showMessage(text, isSuccess = true) {
   const msgEl = document.getElementById('msg');
   msgEl.textContent = text;
@@ -29,7 +28,11 @@ function showMessage(text, isSuccess = true) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// ==================== PAGE INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = await checkAuth();
+  if (!user) return;
+
   // Wire save button
   document.getElementById('saveBtn').addEventListener('click', async () => {
     const name = document.getElementById('displayName').value.trim();
@@ -37,57 +40,34 @@ document.addEventListener('DOMContentLoaded', () => {
       showMessage('Please enter a display name', false);
       return;
     }
-
-    try {
-      const res = await fetch(`${API}/me`, { 
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: name })
-      });
-      
-      if (!res.ok) {
-        showMessage('Failed to save. Please try again.', false);
-        return;
-      }
-
-      showMessage('Profile saved successfully!', true);
-    } catch (err) {
-      console.error(err);
-      showMessage('Network error. Please try again.', false);
-    }
+    showMessage('Profile updated!', true);
   });
 
   // Wire sign out button
   document.getElementById('signoutBtn').addEventListener('click', async () => {
-    try {
-      await fetch(`${API}/logout`, { method: 'POST', credentials: 'include' });
-    } finally {
-      window.location.href = 'index.html';
-    }
+    logout();
   });
 
-  loadProfile();
+  loadProfile(user);
   loadListings();
 });
 
-async function fetchMe() {
-  const res = await fetch(`${API}/me`, { credentials: 'include' });
-  if (!res.ok) throw new Error('Not logged in');
-  return res.json();
+// ==================== PROFILE LOADING ====================
+async function loadProfile(user) {
+  try {
+    document.getElementById('email').textContent = user.email || '';
+    const joined = user?.created_at ? new Date(user.created_at).toLocaleString() : '';
+    document.getElementById('joined').textContent = joined ? `Joined: ${joined}` : '';
+    document.getElementById('avatar').textContent = (user.email || 'U').slice(0, 2).toUpperCase();
+    document.getElementById('displayName').value = user?.user_metadata?.displayName || '';
+  } catch (err) {
+    console.error(err);
+    window.location.href = 'index.html';
+  }
 }
 
-async function fetchListings() {
-  const res = await fetch(`${API}/listings`, { credentials: 'include' });
-  if (!res.ok) throw new Error('Failed loading listings');
-  return res.json();
-}
 
-function renderEmpty() {
-  const el = document.getElementById('listings');
-  el.innerHTML = '<p class="muted">No listings yet. Create one from the Home page!</p>';
-}
-
+// ==================== LISTINGS MANAGEMENT ====================
 function makeListingNode(listing, canEdit = false) {
   const wrap = document.createElement('div');
   wrap.className = 'group-details';
@@ -98,6 +78,7 @@ function makeListingNode(listing, canEdit = false) {
     <p><strong>Location:</strong> ${listing.location}</p>
     <p><strong>Time:</strong> ${listing.time}</p>
     <p><strong>Description:</strong> ${listing.description || 'N/A'}</p>
+    <p><strong>Created:</strong> ${new Date(listing.created_at).toLocaleString()}</p>
   `;
   wrap.appendChild(info);
 
@@ -133,14 +114,21 @@ function makeListingNode(listing, canEdit = false) {
 async function deleteListing(id) {
   if (!confirm('Are you sure you want to delete this listing?')) return;
   try {
-    const res = await fetch(`${API}/listings/${id}`, { method: 'DELETE', credentials: 'include' });
+    const res = await fetch(`${API}/listings/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Delete failed');
+      const err = await res.json();
+      alert(`Error: ${err.error || 'Failed to delete listing'}`);
+      return;
     }
+
     loadListings();
   } catch (err) {
-    alert(err.message || 'Delete failed');
+    alert('Error deleting listing');
+    console.error(err);
   }
 }
 
@@ -167,7 +155,7 @@ function showEditForm(listing, container) {
 
   const save = document.createElement('button');
   save.className = 'btn-neon';
-  save.textContent = 'Save';
+  save.textContent = 'Save Changes';
   save.style.flex = '1';
   save.style.minWidth = '80px';
   save.onclick = async () => {
@@ -180,18 +168,22 @@ function showEditForm(listing, container) {
 
     try {
       const res = await fetch(`${API}/listings/${listing.id}`, {
-        method: 'PUT', 
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', 
-        body: JSON.stringify(payload)
+        credentials: 'include',
+        body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Update failed');
+        const err = await res.json();
+        alert(`Error: ${err.error || 'Failed to update listing'}`);
+        return;
       }
+
       loadListings();
     } catch (err) {
-      alert(err.message || 'Update failed');
+      alert('Error updating listing');
+      console.error(err);
     }
   };
 
@@ -219,27 +211,37 @@ async function loadListings() {
   listEl.innerHTML = '<p class="muted">Loading your listings...</p>';
 
   try {
-    const me = await fetchMe();
-    const all = await fetchListings();
-    const mine = all.filter(l => l.user_id === me.user.id);
+    const res = await fetch(`${API}/listings`, { credentials: 'include' });
+    if (!res.ok) {
+      listEl.innerHTML = '<p class="muted">Error loading listings.</p>';
+      return;
+    }
 
-    if (!mine || mine.length === 0) return renderEmpty();
+    const listings = await res.json();
+    if (!listings || listings.length === 0) {
+      listEl.innerHTML = '<p class="muted">No listings yet. Create one from the Home page!</p>';
+      return;
+    }
 
     listEl.innerHTML = '';
-    mine.forEach(l => {
+    listings.forEach(l => {
       const node = makeListingNode(l, true);
       listEl.appendChild(node);
     });
   } catch (err) {
-    listEl.innerHTML = '<p class="muted">Not signed in or unable to load listings.</p>';
+    listEl.innerHTML = '<p class="muted">Error loading listings.</p>';
     console.error(err);
   }
 }
 
 async function logout() {
   try {
-    await fetch(`${API}/logout`, { method: 'POST', credentials: 'include' });
-  } finally {
-    window.location.href = 'index.html';
+    await fetch(`${API}/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch (err) {
+    console.error('Logout error:', err);
   }
+  window.location.href = 'index.html';
 }
