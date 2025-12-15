@@ -26,11 +26,11 @@ CREATE INDEX IF NOT EXISTS idx_listings_user_id ON public.listings (user_id);
 -- Enable Row Level Security
 ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Users can only view their own listings
-DROP POLICY IF EXISTS "Users can view own listings" ON public.listings;
-CREATE POLICY "Users can view own listings"
+-- RLS Policy: All authenticated users can view ALL listings
+DROP POLICY IF EXISTS "Users can view all listings" ON public.listings;
+CREATE POLICY "Users can view all listings"
 ON public.listings FOR SELECT
-USING (auth.uid() = user_id);
+USING (true);
 
 -- RLS Policy: Users can insert their own listings
 DROP POLICY IF EXISTS "Users can create listings" ON public.listings;
