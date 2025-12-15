@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.listings (
   time text NOT NULL,
   description text,
   user_email text,
+  display_name text,
   created_at timestamptz DEFAULT now()
 );
 

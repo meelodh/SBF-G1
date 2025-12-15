@@ -22,10 +22,11 @@ async function checkAuth() {
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await checkAuth();
   
-  if (user && user.email) {
+  if (user) {
     const welcomeEl = document.getElementById('welcome');
     if (welcomeEl) {
-      welcomeEl.textContent = `Welcome back, ${user.email}!`;
+      const displayName = user.user_metadata?.displayName || user.email;
+      welcomeEl.textContent = `Welcome back, ${displayName}!`;
     }
   }
   
@@ -107,12 +108,14 @@ async function displayListings() {
     listings.forEach((listing) => {
       const listingDiv = document.createElement('div');
       listingDiv.className = 'group-details';
+      // Use display name if available, otherwise fall back to email
+      const postedBy = listing.display_name || listing.user_email || 'Anonymous';
       listingDiv.innerHTML = `
         <p><strong>Group Size:</strong> ${listing.group_size}</p>
         <p><strong>Location:</strong> ${listing.location}</p>
         <p><strong>Time:</strong> ${listing.time}</p>
         <p><strong>Description:</strong> ${listing.description || 'N/A'}</p>
-        <p><strong>Posted by:</strong> ${listing.user_email}</p>
+        <p><strong>Posted by:</strong> ${postedBy}</p>
         <div style="display: flex; gap: 8px; margin-top: 1rem;">
           <button class="btn-neon" style="flex: 1; min-width: 100px;" onclick="joinListing('${listing.id}')">Join Group</button>
         </div>

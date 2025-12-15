@@ -69,9 +69,18 @@ function supabaseAuthed(req) {
 // Simple auth guard
 async function requireUser(req, res) {
   const accessToken = req.cookies?.access_token;
-  if (!accessToken) return { error: "Not logged in" };
+  if (!accessToken) return { error: "auth session missing!" };
 
-  const { data, error } = await supabase.auth.getUser(accessToken);
+  // Create a client with the access token in the Authorization header
+  const authedClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+
+  const { data, error } = await authedClient.auth.getUser();
   if (error || !data?.user) return { error: "Invalid session" };
 
   return { user: data.user };
@@ -225,6 +234,9 @@ app.post("/listings", async (req, res) => {
     }
 
     const sb = supabaseAuthed(req);
+    
+    // Get display name from user metadata, fallback to email
+    const displayName = user.user_metadata?.displayName || user.email;
 
     const { data, error } = await sb
       .from("listings")
@@ -235,6 +247,8 @@ app.post("/listings", async (req, res) => {
           location,
           time,
           description: description || null,
+          user_email: user.email,
+          display_name: displayName,
         },
       ])
       .select()
