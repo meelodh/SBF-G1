@@ -375,6 +375,154 @@ app.delete("/listings/:id", async (req, res) => {
   }
 });
 
+/*
+  GROUP MEMBERS (Join/Leave Groups)
+*/
+
+// GET group members for a listing (creator or group member only)
+app.get("/listings/:id/members", async (req, res) => {
+  try {
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
+
+    const listingId = req.params.id;
+    const user = result.user;
+    const sb = supabaseAuthed(req);
+
+    // First, verify the listing exists and get its creator
+    const { data: listing, error: listingError } = await sb
+      .from("listings")
+      .select("user_id")
+      .eq("id", listingId)
+      .single();
+
+    if (listingError || !listing) {
+      console.log("[GET /members] Listing not found:", listingId);
+      return res.status(404).json({ error: "Listing not found" });
+    }
+
+    // Check if current user is the listing creator OR has joined the group
+    const isCreator = listing.user_id === user.id;
+    
+    let isMember = false;
+    if (!isCreator) {
+      const { data: memberRecord } = await sb
+        .from("group_members")
+        .select("id")
+        .eq("listing_id", listingId)
+        .eq("user_id", user.id)
+        .single();
+      isMember = !!memberRecord;
+    }
+
+    // Allow access if user is creator or member
+    if (!isCreator && !isMember) {
+      console.log(`[GET /members] Access denied - user ${user.id} is not creator or member of listing ${listingId}`);
+      return res.status(403).json({ error: "You must join this group to view members" });
+    }
+
+    // User has access, fetch all members
+    const { data, error } = await sb
+      .from("group_members")
+      .select("*")
+      .eq("listing_id", listingId)
+      .order("joined_at", { ascending: true });
+
+    if (error) {
+      console.error("[GET /members] Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    const userType = isCreator ? "creator" : "member";
+    console.log(`[GET /members] ${userType} ${user.email} fetched ${data?.length || 0} members for listing ${listingId}`);
+    return res.json(data || []);
+  } catch (err) {
+    console.error("[GET /members] Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST join a group (user joins a listing)
+app.post("/listings/:id/join", async (req, res) => {
+  try {
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
+
+    const listingId = req.params.id;
+    const user = result.user;
+    const sb = supabaseAuthed(req);
+
+    // Check if user already joined
+    const { data: existing, error: checkError } = await sb
+      .from("group_members")
+      .select("id")
+      .eq("listing_id", listingId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (existing) {
+      return res.status(400).json({ error: "You've already joined this group" });
+    }
+
+    // Insert join record
+    const displayName = user.user_metadata?.displayName || user.email;
+    const { data, error } = await sb
+      .from("group_members")
+      .insert([
+        {
+          listing_id: listingId,
+          user_id: user.id,
+          user_email: user.email,
+          user_display_name: displayName,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[POST /join] Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    console.log(`[POST /join] User ${user.email} joined listing ${listingId}`);
+    return res.status(201).json(data);
+  } catch (err) {
+    console.error("[POST /join] Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE leave a group (user leaves a listing)
+app.delete("/listings/:id/join", async (req, res) => {
+  try {
+    const result = await requireUser(req, res);
+    if (result.error) return res.status(401).json({ error: result.error });
+
+    const listingId = req.params.id;
+    const user = result.user;
+    const sb = supabaseAuthed(req);
+
+    const { data, error } = await sb
+      .from("group_members")
+      .delete()
+      .eq("listing_id", listingId)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[DELETE /join] Error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    console.log(`[DELETE /join] User ${user.email} left listing ${listingId}`);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[DELETE /join] Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 // LOGOUT
 app.post("/logout", (req, res) => {
   clearAuthCookies(res);

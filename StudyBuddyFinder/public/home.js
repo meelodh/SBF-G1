@@ -202,16 +202,32 @@ function clearFilters() {
 
 function renderListings(listings, container) {
   container.innerHTML = '';
-  listings.forEach((listing) => {
+  listings.forEach(async (listing) => {
     const listingDiv = document.createElement('div');
     listingDiv.className = 'group-details';
     const postedBy = listing.display_name || listing.user_email || 'Anonymous';
+    
+    // Fetch member count for this listing
+    let memberCount = 0;
+    try {
+      const memberRes = await fetch(`${API}/listings/${listing.id}/members`, { credentials: 'include' });
+      if (memberRes.ok) {
+        const members = await memberRes.json();
+        memberCount = members.length;
+      }
+    } catch (err) {
+      console.error('Error fetching member count:', err);
+    }
+
+    const memberText = memberCount > 0 ? `<p><strong>Members Joined:</strong> ${memberCount}</p>` : '';
+    
     listingDiv.innerHTML = `
       <p><strong>Group Size:</strong> ${listing.group_size}</p>
       <p><strong>Location:</strong> ${listing.location}</p>
       <p><strong>Time:</strong> ${listing.time}</p>
       <p><strong>Description:</strong> ${listing.description || 'N/A'}</p>
       <p><strong>Posted by:</strong> ${postedBy}</p>
+      ${memberText}
       <div style="display: flex; gap: 8px; margin-top: 1rem;">
         <button class="btn-neon" style="flex: 1; min-width: 100px;" onclick="joinListing('${listing.id}')">Join Group</button>
       </div>
@@ -220,8 +236,73 @@ function renderListings(listings, container) {
   });
 }
 
-function joinListing(listingId) {
-  alert(`You've expressed interest in this group! In production, contact information would be shared here.`);
+async function joinListing(listingId) {
+  try {
+    console.log('[joinListing] Attempting to join listing:', listingId);
+    
+    // Try to join the group
+    const joinRes = await fetch(`${API}/listings/${listingId}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+
+    const joinData = await joinRes.json();
+    
+    if (!joinRes.ok) {
+      alert(`Error: ${joinData.error || 'Failed to join group'}`);
+      return;
+    }
+
+    console.log('[joinListing] Successfully joined:', joinData);
+
+    // Fetch group members to show in modal
+    await showGroupMembersModal(listingId);
+  } catch (err) {
+    console.error('[joinListing] Error:', err);
+    alert('Error joining group');
+  }
+}
+
+async function showGroupMembersModal(listingId) {
+  try {
+    // Fetch all members of this group
+    const res = await fetch(`${API}/listings/${listingId}/members`, { credentials: 'include' });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error('[showGroupMembersModal] Error response:', res.status, errorData);
+      
+      // If it's a 403, it means they don't have access to this group's members yet
+      if (res.status === 403) {
+        alert('Welcome to the group! 🎉\n\nYou can now see group member information. Refresh the page to view other members who joined.');
+        return;
+      }
+      
+      alert(`Error: ${errorData.error || 'Failed to load group members'}`);
+      return;
+    }
+
+    const members = await res.json();
+    
+    // Create and show modal
+    let membersList = members
+      .map(m => `${m.user_display_name || m.user_email}`)
+      .join(', ');
+    
+    if (members.length === 0) {
+      membersList = 'You are the first to join!';
+    }
+
+    alert(`Welcome to the group! 🎉\n\nGroup Members (${members.length}):\n${membersList}`);
+
+    // Refresh listings to show updated member count
+    displayListings();
+  } catch (err) {
+    console.error('[showGroupMembersModal] Error:', err);
+    // Silently handle network errors and show success message instead
+    alert(`Welcome to the group! 🎉\n\nYou've successfully joined. Refresh the page to see member details.`);
+  }
 }
 
 function getListings() {

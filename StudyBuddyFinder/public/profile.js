@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loadProfile(user);
   loadListings();
+  loadJoinedGroups();
 });
 
 // ==================== PROFILE LOADING ====================
@@ -117,6 +118,13 @@ function makeListingNode(listing, canEdit = false) {
     btns.style.marginTop = '1rem';
     btns.style.flexWrap = 'wrap';
 
+    const viewMembers = document.createElement('button');
+    viewMembers.className = 'btn-neon';
+    viewMembers.textContent = 'View Members';
+    viewMembers.style.flex = '1';
+    viewMembers.style.minWidth = '80px';
+    viewMembers.onclick = () => viewGroupMembers(listing.id);
+
     const edit = document.createElement('button');
     edit.className = 'btn-neon';
     edit.textContent = 'Edit';
@@ -131,6 +139,7 @@ function makeListingNode(listing, canEdit = false) {
     del.style.minWidth = '80px';
     del.onclick = () => deleteListing(listing.id);
 
+    btns.appendChild(viewMembers);
     btns.appendChild(edit);
     btns.appendChild(del);
     wrap.appendChild(btns);
@@ -259,6 +268,149 @@ async function loadListings() {
   } catch (err) {
     listEl.innerHTML = '<p class="muted">Error loading listings.</p>';
     console.error(err);
+  }
+}
+
+// ==================== JOINED GROUPS MANAGEMENT ====================
+async function loadJoinedGroups() {
+  const container = document.getElementById('joined-groups');
+  if (!container) return;
+
+  container.innerHTML = '<p class="muted">Loading joined groups...</p>';
+
+  try {
+    const res = await fetch(`${API}/listings`, { credentials: 'include' });
+    if (!res.ok) {
+      container.innerHTML = '<p class="muted">Error loading joined groups.</p>';
+      return;
+    }
+
+    // Fetch all listings
+    const listings = await res.json();
+    const joinedGroupIds = new Set();
+
+    // For each listing, check if current user is a member
+    let joinedGroups = [];
+    
+    for (const listing of listings) {
+      try {
+        const memberRes = await fetch(`${API}/listings/${listing.id}/members`, { credentials: 'include' });
+        if (memberRes.ok) {
+          const members = await memberRes.json();
+          // Check if current user is in members (simple check by listing)
+          if (members.length > 0) {
+            // We need to check if current user is in this group
+            // For now, we'll fetch the user and check
+            const userRes = await fetch(`${API}/me`, { credentials: 'include' });
+            if (userRes.ok) {
+              const userData = await userRes.json();
+              const currentUserId = userData.user?.id;
+              const isJoined = members.some(m => m.user_id === currentUserId);
+              if (isJoined) {
+                joinedGroups.push(listing);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error checking membership:', err);
+      }
+    }
+
+    if (!joinedGroups || joinedGroups.length === 0) {
+      container.innerHTML = '<p class="muted">You haven\'t joined any groups yet.</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    joinedGroups.forEach(group => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'group-details';
+      const postedBy = group.display_name || group.user_email || 'Anonymous';
+      groupDiv.innerHTML = `
+        <p><strong>Group Size:</strong> ${group.group_size}</p>
+        <p><strong>Location:</strong> ${group.location}</p>
+        <p><strong>Time:</strong> ${group.time}</p>
+        <p><strong>Description:</strong> ${group.description || 'N/A'}</p>
+        <p><strong>Posted by:</strong> ${postedBy}</p>
+        <div style="display: flex; gap: 8px; margin-top: 1rem;">
+          <button class="btn-neon" style="flex: 1; min-width: 80px;" onclick="viewGroupMembers('${group.id}')">View Members</button>
+          <button class="btn-neon" style="flex: 1; min-width: 80px;" onclick="leaveGroup('${group.id}')">Leave Group</button>
+        </div>
+      `;
+      container.appendChild(groupDiv);
+    });
+  } catch (err) {
+    container.innerHTML = '<p class="muted">Error loading joined groups.</p>';
+    console.error(err);
+  }
+}
+
+async function leaveGroup(listingId) {
+  if (!confirm('Are you sure you want to leave this group?')) return;
+
+  try {
+    const res = await fetch(`${API}/listings/${listingId}/join`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert(`Error: ${err.error || 'Failed to leave group'}`);
+      return;
+    }
+
+    alert('You\'ve left the group');
+    loadJoinedGroups();
+  } catch (err) {
+    console.error('Error leaving group:', err);
+    alert('Error leaving group');
+  }
+}
+
+// ==================== VIEW GROUP MEMBERS ====================
+async function viewGroupMembers(listingId) {
+  try {
+    console.log('[viewGroupMembers] Fetching members for listing:', listingId);
+    
+    const res = await fetch(`${API}/listings/${listingId}/members`, { credentials: 'include' });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert(`Error: ${err.error || 'Failed to load members'}`);
+      return;
+    }
+
+    const members = await res.json();
+
+    if (!members || members.length === 0) {
+      alert('No members have joined this group yet.');
+      return;
+    }
+
+    // Format members for display with better layout
+    let membersList = '👥 GROUP MEMBERS\n';
+    membersList += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    members.forEach((member, index) => {
+      const name = member.user_display_name || member.user_email || 'Unknown';
+      const email = member.user_email;
+      const joinedDate = new Date(member.joined_at).toLocaleDateString();
+      membersList += `${index + 1}. ${name}\n`;
+      membersList += `   📧 ${email}\n`;
+      membersList += `   📅 Joined: ${joinedDate}\n\n`;
+    });
+
+    membersList += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
+    membersList += `Total Members: ${members.length}\n\n`;
+    membersList += 'You can copy email addresses to contact members.';
+
+    // Show members in a formatted alert
+    alert(membersList);
+  } catch (err) {
+    console.error('[viewGroupMembers] Error:', err);
+    alert('Error loading group members');
   }
 }
 
